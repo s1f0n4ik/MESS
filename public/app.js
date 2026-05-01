@@ -5,14 +5,14 @@ const KEEP_ALIVE_AUDIO_SRC = `/assets/audio/pc1/${encodeURIComponent('cliks1st t
 const KEEP_ALIVE_AUDIO_VOLUME = 0.01;
 const KEEP_ALIVE_INTERVAL_MS = 2 * 60 * 1000;
 const CARD_POSITIONS = [
-  { left: 284, top: 213 },
-  { left: 992, top: 213 },
-  { left: 1700, top: 213 },
-  { left: 2408, top: 213 },
-  { left: 284, top: 801 },
-  { left: 992, top: 801 },
-  { left: 1700, top: 801 },
-  { left: 2408, top: 801 },
+  { left: 334,  top: 210 },
+  { left: 1042, top: 210 },
+  { left: 1750, top: 210 },
+  { left: 2458, top: 210 },
+  { left: 334,  top: 798 },
+  { left: 1042, top: 798 },
+  { left: 1750, top: 798 },
+  { left: 2458, top: 798 },
 ];
 const ROLES = ['pc1', 'pc2', 'pc3', 'pc4'];
 
@@ -1256,15 +1256,3 @@ window.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefaul
   // Если ?admin=1 — меню управляется как обычно (клавиша M и т.д.)
 })();
 
-function fitStage() {
-  const sceneW = 3440;
-  const sceneH = 1440;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const scale = Math.min(vw / sceneW, vh / sceneH);
-  document.documentElement.style.setProperty('--stage-scale', String(scale));
-}
-
-window.addEventListener('resize', fitStage);
-window.addEventListener('orientationchange', fitStage);
-fitStage();

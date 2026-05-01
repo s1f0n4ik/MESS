@@ -38,7 +38,7 @@ html, body {
   position: relative;
   width: var(--scene-width);
   height: var(--scene-height);
-  background: #200;
+  background: #000;
   flex-shrink: 0;
 }
 .card {
