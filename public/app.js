@@ -1255,3 +1255,16 @@ window.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefaul
   }
   // Если ?admin=1 — меню управляется как обычно (клавиша M и т.д.)
 })();
+
+function fitStage() {
+  const sceneW = 3440;
+  const sceneH = 1440;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const scale = Math.min(vw / sceneW, vh / sceneH);
+  document.documentElement.style.setProperty('--stage-scale', String(scale));
+}
+
+window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', fitStage);
+fitStage();
