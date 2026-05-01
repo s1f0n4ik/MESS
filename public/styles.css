@@ -11,10 +11,35 @@
   --card-h: 432px;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Montserrat', Arial, sans-serif; }
-body { min-width: var(--scene-width); min-height: var(--scene-height); }
-.viewport { overflow: auto; width: 100vw; height: 100vh; background: #000; }
-.scene { position: relative; width: var(--scene-width); height: var(--scene-height); background: #000; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Montserrat', Arial, sans-serif;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.viewport {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.scene {
+  position: relative;
+  width: var(--scene-width);
+  height: var(--scene-height);
+  background: #000;
+  flex-shrink: 0;
+}
 .card {
   position: absolute;
   width: var(--card-w);
@@ -24,7 +49,9 @@ body { min-width: var(--scene-width); min-height: var(--scene-height); }
   background: transparent;
   cursor: pointer;
 }
-.card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.card img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+
+/* МЕНЮ — единственное место, где скролл разрешён */
 .menu {
   position: fixed;
   top: 18px;
@@ -32,11 +59,14 @@ body { min-width: var(--scene-width); min-height: var(--scene-height); }
   z-index: 20;
   width: 420px;
   max-height: calc(100vh - 36px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
   padding: 16px;
   backdrop-filter: blur(8px);
+  user-select: text;
+  -webkit-user-select: text;
 }
 .menu.hidden { display: none; }
 .menu__section + .menu__section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
