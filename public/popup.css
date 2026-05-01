@@ -74,7 +74,7 @@ body { color: #111; }
 }
 .side-text,
 .bottom-text {
-  overflow: auto;
+  overflow: hidden;
   font: 16pt/1.34 'Montserrat', Arial, sans-serif;
   color: #111;
   text-align: left;
@@ -92,6 +92,7 @@ body { color: #111; }
 body.editing .side-text,
 body.editing .bottom-text {
   cursor: text;
+  overflow: auto;
 }
 body.editing .side-text:focus,
 body.editing .bottom-text:focus {
