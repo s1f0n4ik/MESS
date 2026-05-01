@@ -4,7 +4,7 @@ cd /d "%~dp0"
 set "LOGFILE=%~dp0server-launch.log"
 echo ==== %date% %time% ==== > "%LOGFILE%"
 
-set "APP_URL=http://127.0.0.1:8787/"
+set "APP_URL=http://127.0.0.1:8787/?admin=1"
 
 set "NODEEXE="
 for /f "delims=" %%I in ('where node 2^>nul') do (
