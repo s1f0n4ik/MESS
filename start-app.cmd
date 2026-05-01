@@ -42,7 +42,7 @@ for /l %%N in (1,1,25) do (
 
 :ready
 if "%READY%"=="1" (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "$edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'; $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'; if (Test-Path $edge) { Start-Process -FilePath $edge -ArgumentList @('--new-window','--kiosk','http://127.0.0.1:8787/','--edge-kiosk-type=fullscreen') } elseif (Test-Path $chrome) { Start-Process -FilePath $chrome -ArgumentList @('--new-window','--kiosk','http://127.0.0.1:8787/') } else { Start-Process 'http://127.0.0.1:8787/' }"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'; $chrome = 'C:\Program Files\Google\Chrome\Application\chrome.exe'; $extra = @('--disable-pinch','--overscroll-history-navigation=0','--disable-features=TouchpadOverscrollHistoryNavigation,TranslateUI','--no-first-run','--no-default-browser-check','--disable-infobars','--disable-session-crashed-bubble','--disable-background-networking','--disable-component-update'); if (Test-Path $edge) { Start-Process -FilePath $edge -ArgumentList (@('--new-window','--kiosk','http://127.0.0.1:8787/','--edge-kiosk-type=fullscreen') + $extra) } elseif (Test-Path $chrome) { Start-Process -FilePath $chrome -ArgumentList (@('--new-window','--kiosk','http://127.0.0.1:8787/') + $extra) } else { Start-Process 'http://127.0.0.1:8787/' }"
   exit /b 0
 )
 

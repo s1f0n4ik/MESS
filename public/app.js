@@ -1114,17 +1114,56 @@ testMidiButton.addEventListener('click', () => {
 
 window.addEventListener('keydown', async (event) => {
   const key = event.key.toLowerCase();
-  if (key === 'm' || key === 'ь') {
+  // Секретный вход в меню: Ctrl+Alt+Shift+M — работает на любом ПК, в любом состоянии
+  if (event.ctrlKey && event.altKey && event.shiftKey && (key === 'm' || key === 'ь')) {
+    event.preventDefault();
     menu.classList.toggle('hidden');
+    return;
   }
-  if (key === 'f') {
+  const isServer = Boolean(store.settings.wantsServer);
+
+  // Меню — только на серверном ПК
+  if ((key === 'm' || key === 'ь') && isServer) {
+    menu.classList.toggle('hidden');
+    return;
+  }
+  // Fullscreen — на всех ПК (полезно и на клиентах)
+  if (key === 'f' && !event.ctrlKey && !event.altKey) {
     if (!document.fullscreenElement) {
       try { await document.documentElement.requestFullscreen(); } catch (_err) {}
     } else {
       try { await document.exitFullscreen(); } catch (_err) {}
     }
+    return;
   }
-  if (event.shiftKey && key === 'r') resetSettingsButton.click();
+  // Сброс настроек — только на сервере, Ctrl+Shift+R (чтобы случайно не обнулить)
+  if (event.ctrlKey && event.shiftKey && key === 'r' && isServer) {
+    event.preventDefault();
+    resetSettingsButton.click();
+    return;
+  }
+
+  // F5 (перезагрузка), F11 (собственный fullscreen браузера — конфликтует с нашим)
+  if (key === 'f5' || event.key === 'F11') {
+    event.preventDefault();
+    return;
+  }
+  // DevTools: F12, Ctrl+Shift+I/J/C, Ctrl+U (view source)
+  if (event.key === 'F12') { event.preventDefault(); return; }
+  if (event.ctrlKey && event.shiftKey && (key === 'i' || key === 'j' || key === 'c')) {
+    event.preventDefault();
+    return;
+  }
+  if (event.ctrlKey && (key === 'u' || key === 'p' || key === 's')) {
+    event.preventDefault();
+    return;
+  }
+  // Backspace вне полей ввода — чтобы случайно не ушло "назад"
+  if (event.key === 'Backspace') {
+    const t = event.target;
+    const isEditable = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || t.tagName === 'SELECT');
+    if (!isEditable) event.preventDefault();
+  }
 });
 
 window.addEventListener('beforeunload', () => {
@@ -1173,3 +1212,41 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+// ===== Мягкий антивандал: отключаем контекст, перетаскивания, выделения, масштаб =====
+window.addEventListener('contextmenu', (e) => {
+  // В админ-меню контекстное меню разрешаем (чтобы можно было скопировать IP)
+  if (e.target && e.target.closest && e.target.closest('#menu')) return;
+  e.preventDefault();
+});
+window.addEventListener('dragstart', (e) => e.preventDefault());
+window.addEventListener('selectstart', (e) => {
+  if (e.target && e.target.closest && e.target.closest('#menu')) return;
+  e.preventDefault();
+});
+// Ctrl + колесо = масштаб страницы — блокируем
+window.addEventListener('wheel', (e) => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
+// Pinch-жесты (тачпад/тачскрин)
+window.addEventListener('gesturestart', (e) => e.preventDefault());
+window.addEventListener('gesturechange', (e) => e.preventDefault());
+// Средняя кнопка мыши — открытие ссылки в новой вкладке и пр.
+window.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+// Управление видимостью меню по роли (сервер/клиент)
+function applyMenuVisibilityByRole() {
+  const isServer = Boolean(store.settings.wantsServer);
+  if (!isServer) {
+    menu.classList.add('hidden');
+  }
+  // На сервере меню остаётся как было (по умолчанию скрыто, M — показать)
+}
+// Вызываем после каждого апдейта настроек
+const _origSaveSettings = saveSettings;
+saveSettings = function() {
+  _origSaveSettings();
+  applyMenuVisibilityByRole();
+};
+// И при первой загрузке:
+applyMenuVisibilityByRole();

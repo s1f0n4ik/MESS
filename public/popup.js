@@ -106,15 +106,48 @@ window.addEventListener('message', (event) => {
   }
 });
 
+function isServerPc() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('postcards_strict_settings_v8') || '{}');
+    return Boolean(raw.wantsServer);
+  } catch (_err) { return false; }
+}
+
 window.addEventListener('keydown', (event) => {
   const key = event.key.toLowerCase();
-  if (key === 'e' || key === 'у') {
+  const serverPc = isServerPc();
+
+  // Редактирование — только на сервере
+  if ((key === 'e' || key === 'у') && serverPc) {
     event.preventDefault();
     toggleEditing();
+    return;
   }
-  if (!editing && event.key === 'ArrowLeft') pushPage(popupState.page - 1);
-  if (!editing && event.key === 'ArrowRight') pushPage(popupState.page + 1);
+  // Стрелки — только на сервере (на клиенте пусть посетитель не листает)
+  if (!editing && serverPc && event.key === 'ArrowLeft') pushPage(popupState.page - 1);
+  if (!editing && serverPc && event.key === 'ArrowRight') pushPage(popupState.page + 1);
+
+  // Блок вредных клавиш на всех ПК
+  if (event.key === 'F5' || event.key === 'F11' || event.key === 'F12') { event.preventDefault(); return; }
+  if (event.ctrlKey && event.shiftKey && (key === 'i' || key === 'j' || key === 'c')) { event.preventDefault(); return; }
+  if (event.ctrlKey && (key === 'u' || key === 'p' || key === 's' || key === 'w' || key === 'r')) { event.preventDefault(); return; }
+  if (event.key === 'Backspace') {
+    const t = event.target;
+    const isEditable = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (!isEditable) event.preventDefault();
+  }
 });
+
+// Глобальные блокировки в попапе
+window.addEventListener('contextmenu', (e) => e.preventDefault());
+window.addEventListener('dragstart', (e) => e.preventDefault());
+window.addEventListener('selectstart', (e) => {
+  if (document.body.classList.contains('editing')) return;
+  e.preventDefault();
+});
+window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+window.addEventListener('gesturestart', (e) => e.preventDefault());
+window.addEventListener('gesturechange', (e) => e.preventDefault());
 
 window.addEventListener('beforeunload', () => {
   persistCurrentText();
