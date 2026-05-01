@@ -41,7 +41,16 @@ const CSC_CANDIDATES = [
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  lastModified: false,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  },
+}));
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ noServer: true });
@@ -1354,6 +1363,29 @@ try {
     try { discoverySocket.setBroadcast(true); } catch (_err) {}
   });
 } catch (_err) {}
+
+app.post('/api/pdf-window/tabs/add', (req, res) => {
+  const result = addPdfTabLocally(req.body?.pdfFile || '', req.body?.label || '');
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json(result);
+});
+
+app.post('/api/pdf-window/tabs/activate', (req, res) => {
+  const result = setActivePdfTabLocally(req.body?.index);
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.json(result);
+});
+
+app.post('/api/pdf-window/tabs/reset', (_req, res) => {
+  resetPdfTabsLocally();
+  res.json({ ok: true });
+});
 
 app.get('/api/agent', (_req, res) => {
   res.json({ ok: true, localIps, appPort: APP_PORT, discoveryPort: DISCOVERY_PORT, hostName: os.hostname() });
