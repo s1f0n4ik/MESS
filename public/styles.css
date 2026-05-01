@@ -36,23 +36,31 @@ html, body {
   background: #000;
 }
 
-.scene {
-  position: absolute;
+.viewport {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.stage {
+  position: relative;
   width: var(--scene-width);
   height: var(--scene-height);
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: #000;
+  transform-origin: center center;
+  transform: scale(var(--stage-scale, 1));
+  flex-shrink: 0;
 }
-.card {
-  position: absolute;
-  width: var(--card-w);
-  height: var(--card-h);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
+
+.scene {
+  position: relative;
+  width: var(--scene-width);
+  height: var(--scene-height);
+  background: #000;
 }
 .card img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 
