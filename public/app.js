@@ -1114,55 +1114,59 @@ testMidiButton.addEventListener('click', () => {
 
 window.addEventListener('keydown', async (event) => {
   const key = event.key.toLowerCase();
-  // Секретный вход в меню: Ctrl+Alt+Shift+M — работает на любом ПК, в любом состоянии
+  const isServer = Boolean(store.settings.wantsServer);
+  const t = event.target;
+  const inEditable = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || t.tagName === 'SELECT');
+
+  // --- Сначала АНТИВАНДАЛ (работает на всех ПК) ---
+  if (event.key === 'F5' || event.key === 'F11' || event.key === 'F12') {
+    event.preventDefault();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && (key === 'i' || key === 'j' || key === 'c')) {
+    event.preventDefault();
+    return;
+  }
+  if (event.ctrlKey && !event.shiftKey && (key === 'u' || key === 'p' || key === 's')) {
+    event.preventDefault();
+    return;
+  }
+  if (event.key === 'Backspace' && !inEditable) {
+    event.preventDefault();
+  }
+
+  // --- Секретный вход в меню: Ctrl+Alt+Shift+M — для первой настройки клиента ---
   if (event.ctrlKey && event.altKey && event.shiftKey && (key === 'm' || key === 'ь')) {
     event.preventDefault();
     menu.classList.toggle('hidden');
     return;
   }
-  const isServer = Boolean(store.settings.wantsServer);
 
-  // Меню — только на серверном ПК
-  if ((key === 'm' || key === 'ь') && isServer) {
-    menu.classList.toggle('hidden');
+  // --- Сброс настроек: Ctrl+Shift+R, только на сервере ---
+  if (event.ctrlKey && event.shiftKey && !event.altKey && key === 'r' && isServer) {
+    event.preventDefault();
+    resetSettingsButton.click();
     return;
   }
-  // Fullscreen — на всех ПК (полезно и на клиентах)
-  if (key === 'f' && !event.ctrlKey && !event.altKey) {
+
+  // --- Меню по клавише M — ТОЛЬКО на сервере, без модификаторов, вне полей ввода ---
+  if ((key === 'm' || key === 'ь') && !event.ctrlKey && !event.altKey && !event.shiftKey && !inEditable) {
+    if (isServer) {
+      menu.classList.toggle('hidden');
+    }
+    // На клиенте — просто съедаем клавишу, чтобы не натворила ничего другого
+    event.preventDefault();
+    return;
+  }
+
+  // --- Fullscreen по F — на всех ПК, без модификаторов ---
+  if (key === 'f' && !event.ctrlKey && !event.altKey && !event.shiftKey && !inEditable) {
     if (!document.fullscreenElement) {
       try { await document.documentElement.requestFullscreen(); } catch (_err) {}
     } else {
       try { await document.exitFullscreen(); } catch (_err) {}
     }
     return;
-  }
-  // Сброс настроек — только на сервере, Ctrl+Shift+R (чтобы случайно не обнулить)
-  if (event.ctrlKey && event.shiftKey && key === 'r' && isServer) {
-    event.preventDefault();
-    resetSettingsButton.click();
-    return;
-  }
-
-  // F5 (перезагрузка), F11 (собственный fullscreen браузера — конфликтует с нашим)
-  if (key === 'f5' || event.key === 'F11') {
-    event.preventDefault();
-    return;
-  }
-  // DevTools: F12, Ctrl+Shift+I/J/C, Ctrl+U (view source)
-  if (event.key === 'F12') { event.preventDefault(); return; }
-  if (event.ctrlKey && event.shiftKey && (key === 'i' || key === 'j' || key === 'c')) {
-    event.preventDefault();
-    return;
-  }
-  if (event.ctrlKey && (key === 'u' || key === 'p' || key === 's')) {
-    event.preventDefault();
-    return;
-  }
-  // Backspace вне полей ввода — чтобы случайно не ушло "назад"
-  if (event.key === 'Backspace') {
-    const t = event.target;
-    const isEditable = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || t.tagName === 'SELECT');
-    if (!isEditable) event.preventDefault();
   }
 });
 
@@ -1240,13 +1244,26 @@ function applyMenuVisibilityByRole() {
   if (!isServer) {
     menu.classList.add('hidden');
   }
-  // На сервере меню остаётся как было (по умолчанию скрыто, M — показать)
 }
-// Вызываем после каждого апдейта настроек
-const _origSaveSettings = saveSettings;
-saveSettings = function() {
-  _origSaveSettings();
+
+// Переопределяем saveSettings корректно (без потери ссылки)
+const _origSaveSettingsFn = saveSettings;
+saveSettings = function patchedSaveSettings() {
+  _origSaveSettingsFn();
   applyMenuVisibilityByRole();
 };
-// И при первой загрузке:
-applyMenuVisibilityByRole();
+
+// При переключении чекбокса "Сервер" — мгновенно применяем
+serverToggle.addEventListener('change', () => {
+  // captureFormSettings и saveSettings на сервере уже вызываются в других местах,
+  // но мы хотим и on-the-fly скрывать меню, если сняли галку
+  const nowServer = serverToggle.checked;
+  store.settings.wantsServer = nowServer;
+  if (!nowServer) menu.classList.add('hidden');
+});
+
+// Первичное применение — после того, как bootstrap закончит
+// Ждём немного, т.к. loadLocalSettingsFromDisk() асинхронный
+setTimeout(applyMenuVisibilityByRole, 100);
+setTimeout(applyMenuVisibilityByRole, 600);
+setTimeout(applyMenuVisibilityByRole, 1500);
