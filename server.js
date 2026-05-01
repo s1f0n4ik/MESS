@@ -57,6 +57,8 @@ const localPdfWindow = {
   visible: false,
   stateVersion: 0,
   launchedAt: null,
+  tabs: [],          // массив { pdfFile, label, addedAt }
+  activeTabIndex: 0,
 };
 const discoverySocket = dgram.createSocket('udp4');
 
@@ -275,6 +277,63 @@ function getLocalPdfWindowState() {
     token: localPdfWindow.token || '',
     stateVersion: localPdfWindow.stateVersion || 0,
   };
+}
+
+function getLocalPdfWindowState() {
+  return {
+    pid: localPdfWindow.pid,
+    role: localPdfWindow.role,
+    pdfFile: localPdfWindow.pdfFile,
+    visible: localPdfWindow.visible,
+    stateVersion: localPdfWindow.stateVersion,
+    tabs: Array.isArray(localPdfWindow.tabs) ? localPdfWindow.tabs.slice() : [],
+    activeTabIndex: Number(localPdfWindow.activeTabIndex) || 0,
+  };
+}
+
+function bumpPdfWindowState(reason = 'state') {
+  localPdfWindow.stateVersion += 1;
+  const payload = { ok: true, reason, state: getLocalPdfWindowState() };
+  const data = `event: state\ndata:${JSON.stringify(payload)}\n\n`;
+  for (const res of pdfStateClients) {
+    try { res.write(data); } catch (_err) {}
+  }
+}
+
+function addPdfTabLocally(pdfFile, label = '') {
+  const safe = sanitizePdfFile(pdfFile, '');
+  if (!safe) return { ok: false, error: 'invalid pdf' };
+  const tabs = Array.isArray(localPdfWindow.tabs) ? localPdfWindow.tabs : [];
+  // не добавляем дубликаты
+  const exists = tabs.findIndex((t) => t.pdfFile === safe);
+  if (exists >= 0) {
+    localPdfWindow.activeTabIndex = exists;
+    localPdfWindow.pdfFile = safe;
+    bumpPdfWindowState('tab_activated');
+    return { ok: true, index: exists, duplicated: true };
+  }
+  tabs.push({ pdfFile: safe, label: String(label || safe), addedAt: Date.now() });
+  localPdfWindow.tabs = tabs;
+  localPdfWindow.activeTabIndex = tabs.length - 1;
+  localPdfWindow.pdfFile = safe;
+  bumpPdfWindowState('tab_added');
+  return { ok: true, index: tabs.length - 1 };
+}
+
+function setActivePdfTabLocally(index) {
+  const tabs = Array.isArray(localPdfWindow.tabs) ? localPdfWindow.tabs : [];
+  const idx = Math.max(0, Math.min(tabs.length - 1, Number(index) || 0));
+  if (!tabs[idx]) return { ok: false, error: 'no such tab' };
+  localPdfWindow.activeTabIndex = idx;
+  localPdfWindow.pdfFile = tabs[idx].pdfFile;
+  bumpPdfWindowState('tab_activated');
+  return { ok: true, index: idx };
+}
+
+function resetPdfTabsLocally() {
+  localPdfWindow.tabs = [];
+  localPdfWindow.activeTabIndex = 0;
+  bumpPdfWindowState('tabs_reset');
 }
 
 function broadcastPdfWindowState(reason = 'state') {
@@ -503,12 +562,16 @@ function fitPdfWindowBoundsLocally(screenInfo = {}, options = {}, callback = () 
     callback(null, { ok: true, skipped: true, reason: 'unsupported_platform' });
     return;
   }
+  const TITLE_BAR_OFFSET = 32;
   const width = Math.max(400, Number(screenInfo.width) || 1968);
-  const height = Math.max(300, Number(screenInfo.height) || 1392);
+  const contentHeight = Math.max(300, Number(screenInfo.height) || 1392);
+  // Высоту окна делаем больше на высоту заголовка — чтобы видимая часть = contentHeight
+  const height = contentHeight + TITLE_BAR_OFFSET;
   const availWidth = Math.max(width, Number(screenInfo.availWidth) || width);
-  const availHeight = Math.max(height, Number(screenInfo.availHeight) || height);
+  const availHeight = Math.max(contentHeight, Number(screenInfo.availHeight) || contentHeight);
   const left = Math.max(0, Math.round((availWidth - width) / 2));
-  const top = Math.max(0, Math.round((availHeight - height) / 2));
+  // top уводим на -TITLE_BAR_OFFSET: заголовок уедет за верх экрана, видимой останется PDF-часть
+  const top = Math.max(0, Math.round((availHeight - contentHeight) / 2)) - TITLE_BAR_OFFSET;
   const profileDir = PDF_WINDOW_PROFILE_DIR.replace(/'/g, "''");
   const focus = options.focus !== false;
   const processId = Math.max(0, Number(options.processId || localPdfWindow.pid || 0));

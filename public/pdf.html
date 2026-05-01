@@ -8,9 +8,13 @@
     :root {
       --pdf-width: 1968px;
       --pdf-height: 1392px;
+      --tabs-h: 46px;
       --bg: #d8d8d8;
       --panel: #ffffff;
       --text: #444444;
+      --tab-bg: #ececec;
+      --tab-bg-active: #ffffff;
+      --tab-border: #c4c4c4;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -34,17 +38,70 @@
       background: var(--panel);
       box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .tabs-bar {
+      height: var(--tabs-h);
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      padding: 0 8px;
+      background: #eaeaea;
+      border-bottom: 1px solid var(--tab-border);
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex-shrink: 0;
+    }
+    .tabs-bar::-webkit-scrollbar { height: 4px; }
+    .tab {
+      height: calc(var(--tabs-h) - 6px);
+      min-width: 120px;
+      max-width: 240px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--tab-border);
+      border-bottom: none;
+      background: var(--tab-bg);
+      color: #333;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: none;
+      transform: translateY(0);
+      animation: tabAppear 320ms ease both;
+    }
+    @keyframes tabAppear {
+      from { opacity: 0; transform: translateY(8px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+    .tab.active {
+      background: var(--tab-bg-active);
+      font-weight: 500;
+      color: #111;
+      position: relative;
+      z-index: 1;
+    }
+    .tab:not(.active):hover { background: #f2f2f2; }
+    .pdf-body {
+      flex: 1 1 auto;
+      position: relative;
+      background: #fff;
     }
     #pdfFrame {
-      width: var(--pdf-width);
-      height: var(--pdf-height);
+      width: 100%;
+      height: 100%;
       border: 0;
       display: none;
       background: #ffffff;
     }
     #emptyState {
-      width: var(--pdf-width);
-      height: var(--pdf-height);
+      width: 100%;
+      height: 100%;
       display: grid;
       place-items: center;
       color: var(--text);
@@ -55,8 +112,11 @@
 </head>
 <body>
   <main class="pdf-shell">
-    <div id="emptyState">PDF не выбран</div>
-    <iframe id="pdfFrame" title="PDF"></iframe>
+    <nav id="tabsBar" class="tabs-bar" aria-label="PDF tabs"></nav>
+    <div class="pdf-body">
+      <div id="emptyState">PDF не выбран</div>
+      <iframe id="pdfFrame" title="PDF"></iframe>
+    </div>
   </main>
   <script>
     const PDF_WIDTH = 1968;
@@ -64,22 +124,76 @@
     const PDF_ZOOM_PERCENT = 120;
     const frame = document.getElementById('pdfFrame');
     const emptyState = document.getElementById('emptyState');
+    const tabsBar = document.getElementById('tabsBar');
+
     let currentSrc = '';
     let currentStateVersion = -1;
     let stateStream = null;
+    let pdfWarmedUp = false;
+    let pendingPdfFile = null;
+    let knownTabKeys = new Set(); // для анимации только новых вкладок
 
     function fitWindowToPdf() {
+      const TITLE_BAR_OFFSET = 32;
       const borderWidth = Math.max(0, window.outerWidth - window.innerWidth);
-      const borderHeight = Math.max(0, window.outerHeight - window.innerHeight);
       const targetWidth = PDF_WIDTH + borderWidth;
-      const targetHeight = PDF_HEIGHT + borderHeight;
-      const left = Math.max(0, Math.round(((window.screen?.availWidth || screen.width) - targetWidth) / 2));
-      const top = Math.max(0, Math.round(((window.screen?.availHeight || screen.height) - targetHeight) / 2));
+      const targetHeight = PDF_HEIGHT + TITLE_BAR_OFFSET;
+      const availW = window.screen?.availWidth || screen.width;
+      const availH = window.screen?.availHeight || screen.height;
+      const left = Math.max(0, Math.round((availW - targetWidth) / 2));
+      const top = Math.max(0, Math.round((availH - PDF_HEIGHT) / 2)) - TITLE_BAR_OFFSET;
       try { window.resizeTo(targetWidth, targetHeight); } catch (_err) {}
       try { window.moveTo(left, top); } catch (_err) {}
     }
 
+    function renderTabs(tabs, activeIndex) {
+      const list = Array.isArray(tabs) ? tabs : [];
+      const nextKeys = new Set(list.map((t) => t.pdfFile));
+
+      // Удаляем старые
+      Array.from(tabsBar.children).forEach((el) => {
+        if (!nextKeys.has(el.dataset.pdf)) {
+          el.remove();
+          knownTabKeys.delete(el.dataset.pdf);
+        }
+      });
+
+      // Добавляем новые / обновляем состояние
+      list.forEach((tab, idx) => {
+        let el = tabsBar.querySelector(`[data-pdf="${CSS.escape(tab.pdfFile)}"]`);
+        if (!el) {
+          el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'tab';
+          el.dataset.pdf = tab.pdfFile;
+          el.textContent = tab.label || tab.pdfFile;
+          el.addEventListener('click', () => activateTab(idx));
+          tabsBar.appendChild(el);
+          knownTabKeys.add(tab.pdfFile);
+          // Небольшая задержка — даёт анимации сработать при появлении
+        } else {
+          // Убираем класс active у всех, назначим ниже
+          el.textContent = tab.label || tab.pdfFile;
+        }
+        el.classList.toggle('active', idx === activeIndex);
+      });
+    }
+
+    async function activateTab(index) {
+      try {
+        await fetch('/api/pdf-window/tabs/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index }),
+        });
+      } catch (_err) {}
+    }
+
     function renderPdf(pdfFile) {
+      if (!pdfWarmedUp) {
+        pendingPdfFile = pdfFile;
+        return;
+      }
       if (!pdfFile) {
         currentSrc = '';
         frame.removeAttribute('src');
@@ -101,6 +215,8 @@
     function applyState(state) {
       if (!state) return;
       const nextVersion = Number(state.stateVersion || 0);
+      // Вкладки перерисовываем всегда (нужны мгновенные обновления при добавлении)
+      renderTabs(state.tabs || [], Number(state.activeTabIndex) || 0);
       if (nextVersion === currentStateVersion) return;
       currentStateVersion = nextVersion;
       renderPdf(String(state.pdfFile || ''));
@@ -128,13 +244,9 @@
       } catch (_err) {}
     }
 
-    let pdfWarmedUp = false;
-    let pendingPdfFile = null;
-
     function warmupPdfViewer() {
       return new Promise((resolve) => {
         if (pdfWarmedUp) return resolve();
-        // Грузим пустой PDF через data: URI — инициализирует PDF-модуль Edge
         const onLoad = () => {
           frame.removeEventListener('load', onLoad);
           pdfWarmedUp = true;
@@ -142,9 +254,7 @@
         };
         frame.addEventListener('load', onLoad);
         frame.style.display = 'none';
-        // минимальный валидный PDF (1 страница, пустая)
         frame.src = 'data:application/pdf;base64,JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9MZW5ndGggNDIvRmlsdGVyL0ZsYXRlRGVjb2RlPj5zdHJlYW0KeJwr5HIK4TI2UzBQMLVUMDc2VzAyMlMwNFAwM1MwMDECAP4VBvsKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDwvUHJvY1NldFsvUERGXT4+L01lZGlhQm94WzAgMCAxMCAxMF0vQ29udGVudHMgMyAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1sxIDAgUl0+PgplbmRvYmoKNCAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMTI0IDAwMDAwIG4gCjAwMDAwMDAyMTcgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMjY0IDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA1L1Jvb3QgNCAwIFI+PgpzdGFydHhyZWYKMzEwCiUlRU9G';
-        // предохранитель: если load не прилетит за 1.5 сек — всё равно идём дальше
         setTimeout(() => {
           if (!pdfWarmedUp) {
             frame.removeEventListener('load', onLoad);
@@ -155,33 +265,9 @@
       });
     }
 
-    function renderPdf(pdfFile) {
-      if (!pdfWarmedUp) {
-        pendingPdfFile = pdfFile;
-        return;
-      }
-      if (!pdfFile) {
-        currentSrc = '';
-        frame.removeAttribute('src');
-        frame.style.display = 'none';
-        emptyState.style.display = 'grid';
-        document.title = 'PDF Viewer';
-        return;
-      }
-      const nextSrc = '/pdfs/' + encodeURIComponent(pdfFile).replace(/%2F/g, '/') + `#toolbar=0&navpanes=0&scrollbar=0&zoom=${PDF_ZOOM_PERCENT}`;
-      if (currentSrc !== nextSrc) {
-        frame.src = nextSrc;
-        currentSrc = nextSrc;
-      }
-      frame.style.display = 'block';
-      emptyState.style.display = 'none';
-      document.title = pdfFile;
-    }
-
     window.addEventListener('load', async () => {
       fitWindowToPdf();
       await warmupPdfViewer();
-      // После прогрева — применяем отложенный рендер, если был
       if (pendingPdfFile !== null) {
         const f = pendingPdfFile;
         pendingPdfFile = null;
@@ -195,6 +281,17 @@
 
     window.addEventListener('beforeunload', () => {
       try { stateStream && stateStream.close(); } catch (_err) {}
+    });
+
+    // Антивандал: блокируем контекст, перетаскивание, масштаб
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('dragstart', (e) => e.preventDefault());
+    window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'F5' || e.key === 'F12' || e.key === 'F11') { e.preventDefault(); return; }
+      const k = e.key.toLowerCase();
+      if (e.ctrlKey && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) { e.preventDefault(); return; }
+      if (e.ctrlKey && (k === 'u' || k === 'p' || k === 's' || k === 'w' || k === 'r')) { e.preventDefault(); return; }
     });
   </script>
 </body>
