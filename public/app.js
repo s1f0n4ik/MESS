@@ -182,6 +182,8 @@ async function loadLocalSettingsFromDisk() {
     };
     restorePopupTexts(json.popupTexts || {});
     saveSettings();
+    // Принудительно применяем видимость меню после загрузки настроек с диска
+    applyMenuVisibilityByRole();
   } catch (_err) {}
 }
 
@@ -1238,7 +1240,7 @@ window.addEventListener('gesturechange', (e) => e.preventDefault());
 // Средняя кнопка мыши — открытие ссылки в новой вкладке и пр.
 window.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
 
-// Управление видимостью меню по роли (сервер/клиент)
+// ===== Видимость меню на клиентских ПК =====
 function applyMenuVisibilityByRole() {
   const isServer = Boolean(store.settings.wantsServer);
   if (!isServer) {
@@ -1246,24 +1248,22 @@ function applyMenuVisibilityByRole() {
   }
 }
 
-// Переопределяем saveSettings корректно (без потери ссылки)
+// Оборачиваем saveSettings, чтобы после каждого сохранения применять видимость
 const _origSaveSettingsFn = saveSettings;
 saveSettings = function patchedSaveSettings() {
   _origSaveSettingsFn();
   applyMenuVisibilityByRole();
 };
 
-// При переключении чекбокса "Сервер" — мгновенно применяем
-serverToggle.addEventListener('change', () => {
-  // captureFormSettings и saveSettings на сервере уже вызываются в других местах,
-  // но мы хотим и on-the-fly скрывать меню, если сняли галку
-  const nowServer = serverToggle.checked;
-  store.settings.wantsServer = nowServer;
-  if (!nowServer) menu.classList.add('hidden');
-});
-
-// Первичное применение — после того, как bootstrap закончит
-// Ждём немного, т.к. loadLocalSettingsFromDisk() асинхронный
+// Немедленно применяем — и несколько раз с задержкой на случай асинхронной загрузки
+applyMenuVisibilityByRole();
 setTimeout(applyMenuVisibilityByRole, 100);
 setTimeout(applyMenuVisibilityByRole, 600);
 setTimeout(applyMenuVisibilityByRole, 1500);
+
+// Периодический страж: раз в секунду проверяем и, если клиент — держим меню скрытым
+setInterval(() => {
+  if (!store.settings.wantsServer) {
+    if (!menu.classList.contains('hidden')) menu.classList.add('hidden');
+  }
+}, 1000);
