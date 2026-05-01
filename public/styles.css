@@ -25,6 +25,10 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
 }
+
+#menu.hidden {
+  display: none !important;
+}
 .viewport {
   width: 100vw;
   height: 100vh;

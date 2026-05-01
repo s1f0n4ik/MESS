@@ -182,8 +182,6 @@ async function loadLocalSettingsFromDisk() {
     };
     restorePopupTexts(json.popupTexts || {});
     saveSettings();
-    // Принудительно применяем видимость меню после загрузки настроек с диска
-    applyMenuVisibilityByRole();
   } catch (_err) {}
 }
 
@@ -1139,10 +1137,13 @@ window.addEventListener('keydown', async (event) => {
 
   // --- Секретный вход в меню: Ctrl+Alt+Shift+M — для первой настройки клиента ---
   if (event.ctrlKey && event.altKey && event.shiftKey && (key === 'm' || key === 'ь')) {
-    event.preventDefault();
+  event.preventDefault();
+  const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
+  if (isAdmin) {
     menu.classList.toggle('hidden');
-    return;
   }
+  return;
+}
 
   // --- Сброс настроек: Ctrl+Shift+R, только на сервере ---
   if (event.ctrlKey && event.shiftKey && !event.altKey && key === 'r' && isServer) {
@@ -1151,15 +1152,14 @@ window.addEventListener('keydown', async (event) => {
     return;
   }
 
-  // --- Меню по клавише M — ТОЛЬКО на сервере, без модификаторов, вне полей ввода ---
   if ((key === 'm' || key === 'ь') && !event.ctrlKey && !event.altKey && !event.shiftKey && !inEditable) {
-    if (isServer) {
-      menu.classList.toggle('hidden');
-    }
-    // На клиенте — просто съедаем клавишу, чтобы не натворила ничего другого
-    event.preventDefault();
-    return;
+  const isAdmin = new URLSearchParams(location.search).get('admin') === '1';
+  if (isAdmin) {
+    menu.classList.toggle('hidden');
   }
+  event.preventDefault();
+  return;
+}
 
   // --- Fullscreen по F — на всех ПК, без модификаторов ---
   if (key === 'f' && !event.ctrlKey && !event.altKey && !event.shiftKey && !inEditable) {
@@ -1240,30 +1240,18 @@ window.addEventListener('gesturechange', (e) => e.preventDefault());
 // Средняя кнопка мыши — открытие ссылки в новой вкладке и пр.
 window.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
 
-// ===== Видимость меню на клиентских ПК =====
-function applyMenuVisibilityByRole() {
-  const isServer = Boolean(store.settings.wantsServer);
-  if (!isServer) {
+// ===== Меню показывается ТОЛЬКО при ?admin=1 в URL =====
+(function setupAdminMenuAccess() {
+  const params = new URLSearchParams(location.search);
+  const isAdmin = params.get('admin') === '1';
+
+  if (!isAdmin) {
+    // Клиентский режим — прячем меню намертво и не даём открыть
     menu.classList.add('hidden');
+    // Раз в секунду форсим скрытие на случай, если что-то снимет класс
+    setInterval(() => {
+      if (!menu.classList.contains('hidden')) menu.classList.add('hidden');
+    }, 500);
   }
-}
-
-// Оборачиваем saveSettings, чтобы после каждого сохранения применять видимость
-const _origSaveSettingsFn = saveSettings;
-saveSettings = function patchedSaveSettings() {
-  _origSaveSettingsFn();
-  applyMenuVisibilityByRole();
-};
-
-// Немедленно применяем — и несколько раз с задержкой на случай асинхронной загрузки
-applyMenuVisibilityByRole();
-setTimeout(applyMenuVisibilityByRole, 100);
-setTimeout(applyMenuVisibilityByRole, 600);
-setTimeout(applyMenuVisibilityByRole, 1500);
-
-// Периодический страж: раз в секунду проверяем и, если клиент — держим меню скрытым
-setInterval(() => {
-  if (!store.settings.wantsServer) {
-    if (!menu.classList.contains('hidden')) menu.classList.add('hidden');
-  }
-}, 1000);
+  // Если ?admin=1 — меню управляется как обычно (клавиша M и т.д.)
+})();
