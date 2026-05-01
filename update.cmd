@@ -1,78 +1,72 @@
-@echo off
+﻿@echo off
+chcp 65001 >nul
 setlocal enableextensions enabledelayedexpansion
 cd /d "%~dp0"
-title Обновление и перезапуск
+title Update and restart
 
-set "LAUNCHER=запуск приложения.cmd"
+set "LAUNCHER=start-app.cmd"
 set "LOGFILE=%~dp0update.log"
+set "SERVER_PORT=8787"
 
 echo ======================================== > "%LOGFILE%"
-echo   Update-and-restart %date% %time%       >> "%LOGFILE%"
+echo   Update-and-restart %date% %time%        >> "%LOGFILE%"
 echo ======================================== >> "%LOGFILE%"
 
 echo ========================================
-echo   Обновление и перезапуск проекта
+echo   Update and restart
 echo ========================================
 echo.
 
-REM -- 1. Проверка git --
 where git >nul 2>nul
 if errorlevel 1 (
-  echo [ОШИБКА] Git не найден в PATH.
-  echo Установи Git: https://git-scm.com/download/win
+  echo [ERROR] Git not found in PATH.
   pause
   exit /b 1
 )
 
-REM -- 2. Запоминаем хеш package.json ДО обновления --
 set "PKG_HASH_BEFORE="
 if exist "%~dp0package.json" (
   for /f "delims=" %%H in ('certutil -hashfile "%~dp0package.json" MD5 ^| find /v ":" ^| find /v "CertUtil"') do set "PKG_HASH_BEFORE=%%H"
 )
 
-REM -- 3. Локальные изменения --
-echo [1/5] Проверка локальных изменений...
+echo [1/5] Check local changes...
 git status --porcelain > "%TEMP%\git_status.txt"
 for %%A in ("%TEMP%\git_status.txt") do set SIZE=%%~zA
 if not "%SIZE%"=="0" (
   echo.
-  echo Есть незакоммиченные локальные изменения:
+  echo Local uncommitted changes found:
   git status --short
   echo.
-  choice /C YN /M "Сохранить их в stash и продолжить"
+  choice /C YN /M "Stash them and continue"
   if errorlevel 2 (
-    echo Отменено пользователем.
+    echo Cancelled.
     del "%TEMP%\git_status.txt" >nul 2>nul
     pause
     exit /b 1
   )
-  git stash push -u -m "auto-stash-%date%-%time%" >> "%LOGFILE%" 2>&1
+  git stash push -u -m "auto-stash-%random%" >> "%LOGFILE%" 2>&1
   if errorlevel 1 (
-    echo [ОШИБКА] Stash не удался.
+    echo [ERROR] stash failed.
     pause
     exit /b 1
   )
 )
 del "%TEMP%\git_status.txt" >nul 2>nul
 
-REM -- 4. Git pull --
-echo [2/5] Получение изменений из Git...
+echo [2/5] Fetching from remote...
 git fetch --all --prune >> "%LOGFILE%" 2>&1
 if errorlevel 1 (
-  echo [ОШИБКА] git fetch провалился. Подробности в update.log.
+  echo [ERROR] git fetch failed. See update.log.
   pause
   exit /b 1
 )
 git pull --ff-only >> "%LOGFILE%" 2>&1
 if errorlevel 1 (
-  echo [ОШИБКА] git pull --ff-only провалился.
-  echo Скорее всего у тебя расходятся истории.
-  echo Открой Git Bash и разберись: git status / git log.
+  echo [ERROR] git pull --ff-only failed. See update.log.
   pause
   exit /b 1
 )
 
-REM -- 5. Проверяем, изменился ли package.json --
 set "NEED_NPM=0"
 if exist "%~dp0package.json" (
   set "PKG_HASH_AFTER="
@@ -81,49 +75,43 @@ if exist "%~dp0package.json" (
   if not exist "%~dp0node_modules" set "NEED_NPM=1"
 )
 
-REM -- 6. Прибиваем старый сервер --
-echo [3/5] Остановка старого сервера...
-REM Убиваем node, запущенный из этой папки
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*%~dp0server.js*'.Replace('\','\\') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+echo [3/5] Stopping old server...
+REM Точечно: только node.exe, который слушает наш порт
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":%SERVER_PORT%" ^| findstr "LISTENING"') do (
+  echo Killing PID %%P >> "%LOGFILE%"
+  taskkill /F /PID %%P >> "%LOGFILE%" 2>&1
+)
 
-REM На всякий случай — грубо прибиваем все node.exe, если вдруг первый способ не сработал
-REM (закомментируй строку ниже, если на ПК крутится ещё что-то на Node)
-taskkill /F /IM node.exe /T >nul 2>nul
-
-REM И окно браузера в киоске
+REM Закрываем старые окна браузера-киоска
 taskkill /F /IM msedge.exe /T >nul 2>nul
 taskkill /F /IM chrome.exe /T >nul 2>nul
 
 timeout /t 2 /nobreak >nul
 
-REM -- 7. npm install если нужно --
 if "%NEED_NPM%"=="1" (
-  echo [4/5] Обновление зависимостей npm...
+  echo [4/5] npm install...
   call npm install >> "%LOGFILE%" 2>&1
   if errorlevel 1 (
-    echo [ОШИБКА] npm install провалился. Подробности в update.log.
+    echo [ERROR] npm install failed. See update.log.
     pause
     exit /b 1
   )
 ) else (
-  echo [4/5] Зависимости без изменений, npm install пропущен.
+  echo [4/5] Dependencies unchanged, skipping npm install.
 )
 
-REM -- 8. Запуск --
-echo [5/5] Запуск приложения...
-if exist "%~dp0%LAUNCHER%" (
-  start "" "%~dp0%LAUNCHER%"
-) else (
-  echo [ОШИБКА] Не найден файл "%LAUNCHER%".
-  echo Проверь имя файла в корне проекта.
+echo [5/5] Launching app...
+if not exist "%~dp0%LAUNCHER%" (
+  echo [ERROR] Launcher not found: %LAUNCHER%
+  echo Rename your launch file to start-app.cmd
   pause
   exit /b 1
 )
+start "" cmd /c "%~dp0%LAUNCHER%"
 
 echo.
 echo ========================================
-echo   Готово. Приложение перезапущено.
+echo   Done. App restarted.
 echo ========================================
 timeout /t 3 /nobreak >nul
 exit /b 0

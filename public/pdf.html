@@ -128,8 +128,65 @@
       } catch (_err) {}
     }
 
-    window.addEventListener('load', () => {
+    let pdfWarmedUp = false;
+    let pendingPdfFile = null;
+
+    function warmupPdfViewer() {
+      return new Promise((resolve) => {
+        if (pdfWarmedUp) return resolve();
+        // Грузим пустой PDF через data: URI — инициализирует PDF-модуль Edge
+        const onLoad = () => {
+          frame.removeEventListener('load', onLoad);
+          pdfWarmedUp = true;
+          resolve();
+        };
+        frame.addEventListener('load', onLoad);
+        frame.style.display = 'none';
+        // минимальный валидный PDF (1 страница, пустая)
+        frame.src = 'data:application/pdf;base64,JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9MZW5ndGggNDIvRmlsdGVyL0ZsYXRlRGVjb2RlPj5zdHJlYW0KeJwr5HIK4TI2UzBQMLVUMDc2VzAyMlMwNFAwM1MwMDECAP4VBvsKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDwvUHJvY1NldFsvUERGXT4+L01lZGlhQm94WzAgMCAxMCAxMF0vQ29udGVudHMgMyAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1sxIDAgUl0+PgplbmRvYmoKNCAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMTI0IDAwMDAwIG4gCjAwMDAwMDAyMTcgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMjY0IDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA1L1Jvb3QgNCAwIFI+PgpzdGFydHhyZWYKMzEwCiUlRU9G';
+        // предохранитель: если load не прилетит за 1.5 сек — всё равно идём дальше
+        setTimeout(() => {
+          if (!pdfWarmedUp) {
+            frame.removeEventListener('load', onLoad);
+            pdfWarmedUp = true;
+            resolve();
+          }
+        }, 1500);
+      });
+    }
+
+    function renderPdf(pdfFile) {
+      if (!pdfWarmedUp) {
+        pendingPdfFile = pdfFile;
+        return;
+      }
+      if (!pdfFile) {
+        currentSrc = '';
+        frame.removeAttribute('src');
+        frame.style.display = 'none';
+        emptyState.style.display = 'grid';
+        document.title = 'PDF Viewer';
+        return;
+      }
+      const nextSrc = '/pdfs/' + encodeURIComponent(pdfFile).replace(/%2F/g, '/') + `#toolbar=0&navpanes=0&scrollbar=0&zoom=${PDF_ZOOM_PERCENT}`;
+      if (currentSrc !== nextSrc) {
+        frame.src = nextSrc;
+        currentSrc = nextSrc;
+      }
+      frame.style.display = 'block';
+      emptyState.style.display = 'none';
+      document.title = pdfFile;
+    }
+
+    window.addEventListener('load', async () => {
       fitWindowToPdf();
+      await warmupPdfViewer();
+      // После прогрева — применяем отложенный рендер, если был
+      if (pendingPdfFile !== null) {
+        const f = pendingPdfFile;
+        pendingPdfFile = null;
+        renderPdf(f);
+      }
       refreshState();
       connectStateStream();
       setTimeout(fitWindowToPdf, 80);
