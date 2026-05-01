@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>PDF Viewer</title>
+  <style>
+    :root {
+      --pdf-width: 1968px;
+      --pdf-height: 1392px;
+      --bg: #d8d8d8;
+      --panel: #ffffff;
+      --text: #444444;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-width: var(--pdf-width);
+      min-height: var(--pdf-height);
+      background: var(--bg);
+      overflow: hidden;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      font-family: Montserrat, Arial, sans-serif;
+    }
+    .pdf-shell {
+      width: var(--pdf-width);
+      height: var(--pdf-height);
+      background: var(--panel);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+    }
+    #pdfFrame {
+      width: var(--pdf-width);
+      height: var(--pdf-height);
+      border: 0;
+      display: none;
+      background: #ffffff;
+    }
+    #emptyState {
+      width: var(--pdf-width);
+      height: var(--pdf-height);
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-size: 20px;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <main class="pdf-shell">
+    <div id="emptyState">PDF не выбран</div>
+    <iframe id="pdfFrame" title="PDF"></iframe>
+  </main>
+  <script>
+    const PDF_WIDTH = 1968;
+    const PDF_HEIGHT = 1392;
+    const PDF_ZOOM_PERCENT = 120;
+    const frame = document.getElementById('pdfFrame');
+    const emptyState = document.getElementById('emptyState');
+    let currentSrc = '';
+    let currentStateVersion = -1;
+    let stateStream = null;
+
+    function fitWindowToPdf() {
+      const borderWidth = Math.max(0, window.outerWidth - window.innerWidth);
+      const borderHeight = Math.max(0, window.outerHeight - window.innerHeight);
+      const targetWidth = PDF_WIDTH + borderWidth;
+      const targetHeight = PDF_HEIGHT + borderHeight;
+      const left = Math.max(0, Math.round(((window.screen?.availWidth || screen.width) - targetWidth) / 2));
+      const top = Math.max(0, Math.round(((window.screen?.availHeight || screen.height) - targetHeight) / 2));
+      try { window.resizeTo(targetWidth, targetHeight); } catch (_err) {}
+      try { window.moveTo(left, top); } catch (_err) {}
+    }
+
+    function renderPdf(pdfFile) {
+      if (!pdfFile) {
+        currentSrc = '';
+        frame.removeAttribute('src');
+        frame.style.display = 'none';
+        emptyState.style.display = 'grid';
+        document.title = 'PDF Viewer';
+        return;
+      }
+      const nextSrc = '/pdfs/' + encodeURIComponent(pdfFile).replace(/%2F/g, '/') + `#toolbar=0&navpanes=0&scrollbar=0&zoom=${PDF_ZOOM_PERCENT}`;
+      if (currentSrc !== nextSrc) {
+        frame.src = nextSrc;
+        currentSrc = nextSrc;
+      }
+      frame.style.display = 'block';
+      emptyState.style.display = 'none';
+      document.title = pdfFile;
+    }
+
+    function applyState(state) {
+      if (!state) return;
+      const nextVersion = Number(state.stateVersion || 0);
+      if (nextVersion === currentStateVersion) return;
+      currentStateVersion = nextVersion;
+      renderPdf(String(state.pdfFile || ''));
+    }
+
+    async function refreshState() {
+      try {
+        const res = await fetch('/api/pdf-window/state', { cache: 'no-store' });
+        const json = await res.json();
+        if (!json?.ok || !json.state) return;
+        applyState(json.state);
+      } catch (_err) {}
+    }
+
+    function connectStateStream() {
+      try {
+        stateStream = new EventSource('/api/pdf-window/events');
+        stateStream.addEventListener('state', (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            applyState(payload?.state);
+          } catch (_err) {}
+        });
+        stateStream.onerror = () => {};
+      } catch (_err) {}
+    }
+
+    window.addEventListener('load', () => {
+      fitWindowToPdf();
+      refreshState();
+      connectStateStream();
+      setTimeout(fitWindowToPdf, 80);
+      setTimeout(fitWindowToPdf, 220);
+    });
+
+    window.addEventListener('beforeunload', () => {
+      try { stateStream && stateStream.close(); } catch (_err) {}
+    });
+  </script>
+</body>
+</html>

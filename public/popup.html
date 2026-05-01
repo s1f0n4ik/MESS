@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Экфрасис</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/popup.css">
+</head>
+<body>
+  <div class="popup-shell" id="popupShell">
+    <header class="popup-header">
+      <div id="pageTitle">Разворот 1</div>
+      <div id="pageCounter">1 / 8</div>
+    </header>
+    <section class="spread">
+      <article class="page">
+        <div class="page-layout">
+          <img id="frontImage" class="page-image" alt="Лицевая сторона открытки">
+          <div id="leftSideText" class="side-text" spellcheck="false"></div>
+          <div id="leftBottomText" class="bottom-text" spellcheck="false"></div>
+        </div>
+      </article>
+      <article class="page">
+        <div class="page-layout">
+          <img id="backImage" class="page-image" alt="Оборотная сторона открытки">
+          <div id="rightSideText" class="side-text" spellcheck="false"></div>
+          <div id="rightBottomText" class="bottom-text" spellcheck="false"></div>
+        </div>
+      </article>
+      <button id="prevPageBtn" class="nav-zone nav-zone--left" type="button" aria-label="Предыдущий разворот"><span>‹</span></button>
+      <button id="nextPageBtn" class="nav-zone nav-zone--right" type="button" aria-label="Следующий разворот"><span>›</span></button>
+    </section>
+  </div>
+  <script src="/popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+2026/04/10-00:26:18.779 2438 Reusing MANIFEST C:\Users\PC-10\Downloads\Выставка А. Чермантеевой Открытки (09.04.2)\Выставка А. Чермантеевой Открытки (09.04.2)\.pdf-window-profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/04/10-00:26:18.779 2438 Recovering log #67
+2026/04/10-00:26:18.779 2438 Reusing old log C:\Users\PC-10\Downloads\Выставка А. Чермантеевой Открытки (09.04.2)\Выставка А. Чермантеевой Открытки (09.04.2)\.pdf-window-profile\Default\EdgeCoupons/coupons_data.db/000067.log 
+2026/04/10-00:26:18.853 e00 Level-0 table #71: started
+2026/04/10-00:26:18.858 e00 Level-0 table #71: 682208 bytes OK
+2026/04/10-00:26:18.859 e00 Delete type=0 #67
+2026/04/10-00:26:18.860 e00 Compacting 4@0 + 1@1 files
+2026/04/10-00:26:18.866 e00 Generated table #72@0: 3 keys, 682208 bytes
+2026/04/10-00:26:18.866 e00 Compacted 4@0 + 1@1 files => 682208 bytes
+2026/04/10-00:26:18.867 e00 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/04/10-00:26:18.867 e00 Delete type=2 #59
+2026/04/10-00:26:18.867 e00 Delete type=2 #62
+2026/04/10-00:26:18.867 e00 Delete type=2 #65
+2026/04/10-00:26:18.867 e00 Delete type=2 #68
+2026/04/10-00:26:18.867 e00 Delete type=2 #71

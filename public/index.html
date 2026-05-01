@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Открытки</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside id="menu" class="menu">
+    <div class="menu__section">
+      <div class="menu__title">Открытки</div>
+      <div class="menu__hint">M - скрыть меню · F - fullscreen · Shift+R - сброс настроек</div>
+    </div>
+
+    <div class="menu__section menu__grid">
+      <label>
+        <span>ПК</span>
+        <select id="roleSelect">
+          <option value="pc1">ПК-1</option>
+          <option value="pc2">ПК-2</option>
+          <option value="pc3">ПК-3</option>
+          <option value="pc4">ПК-4</option>
+        </select>
+      </label>
+      <label class="checkbox-row">
+        <input id="serverToggle" type="checkbox">
+        <span>Сервер: Да</span>
+      </label>
+      <label class="checkbox-row">
+        <input id="audioEnabledCheckbox" type="checkbox" checked>
+        <span>Звук включен</span>
+      </label>
+      <label>
+        <span>IP серверного ПК</span>
+        <input id="serverHostInput" type="text" placeholder="например, 192.168.0.15">
+      </label>
+      <button id="fullscreenButton" type="button">На весь экран</button>
+      <button id="resetClicksButton" type="button">Сбросить клики</button>
+      <button id="resetScenarioButton" type="button">Обновить сценарий</button>
+      <button id="forceOpenAllButton" type="button">Окна на всех ПК</button>
+      <button id="minimizeAllWindowsButton" type="button">Свернуть все окна Windows</button>
+      <button id="saveSettingsButton" type="button">Сохранить настройки</button>
+      <button id="resetSettingsButton" type="button">Сбросить настройки</button>
+    </div>
+
+    <div class="menu__section menu__grid">
+      <label>
+        <span>MIDI input</span>
+        <select id="midiInputSelect"></select>
+      </label>
+      <label>
+        <span>MIDI output</span>
+        <select id="midiOutputSelect"></select>
+      </label>
+      <label>
+        <span>Канал MIDI</span>
+        <select id="midiChannelSelect"></select>
+      </label>
+      <label>
+        <span>Нота запуска окон</span>
+        <div class="inline-field">
+          <input id="midiLaunchInput" type="number" min="0" max="127" value="60">
+          <strong id="midiLaunchLabel">C4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-1: нота открыть</span>
+        <div class="inline-field">
+          <input id="midiOpenPc1Input" type="number" min="0" max="127" value="61">
+          <strong id="midiOpenPc1Label">C#4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-2: нота открыть</span>
+        <div class="inline-field">
+          <input id="midiOpenPc2Input" type="number" min="0" max="127" value="62">
+          <strong id="midiOpenPc2Label">D4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-3: нота открыть</span>
+        <div class="inline-field">
+          <input id="midiOpenPc3Input" type="number" min="0" max="127" value="63">
+          <strong id="midiOpenPc3Label">D#4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-4: нота открыть</span>
+        <div class="inline-field">
+          <input id="midiOpenPc4Input" type="number" min="0" max="127" value="64">
+          <strong id="midiOpenPc4Label">E4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-1: нота закрыть</span>
+        <div class="inline-field">
+          <input id="midiClosePc1Input" type="number" min="0" max="127" value="65">
+          <strong id="midiClosePc1Label">F4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-2: нота закрыть</span>
+        <div class="inline-field">
+          <input id="midiClosePc2Input" type="number" min="0" max="127" value="66">
+          <strong id="midiClosePc2Label">F#4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-3: нота закрыть</span>
+        <div class="inline-field">
+          <input id="midiClosePc3Input" type="number" min="0" max="127" value="67">
+          <strong id="midiClosePc3Label">G4</strong>
+        </div>
+      </label>
+      <label>
+        <span>ПК-4: нота закрыть</span>
+        <div class="inline-field">
+          <input id="midiClosePc4Input" type="number" min="0" max="127" value="68">
+          <strong id="midiClosePc4Label">G#4</strong>
+        </div>
+      </label>
+      <label>
+        <span>Нота: свернуть все окна Windows</span>
+        <div class="inline-field">
+          <input id="midiMinimizeAllInput" type="number" min="0" max="127" value="69">
+          <strong id="midiMinimizeAllLabel">A4</strong>
+        </div>
+      </label>
+      <label>
+        <span>Исходящая MIDI-нота</span>
+        <div class="inline-field">
+          <input id="midiOutputNoteInput" type="number" min="0" max="127" value="72">
+          <strong id="midiOutputNoteLabel">C5</strong>
+        </div>
+      </label>
+      <label>
+        <span>Velocity</span>
+        <input id="midiVelocityInput" type="number" min="0" max="127" value="100">
+      </label>
+      <label>
+        <span>Длительность, мс</span>
+        <input id="midiDurationInput" type="number" min="1" value="180">
+      </label>
+      <button id="saveMidiButton" type="button">Сохранить MIDI</button>
+      <button id="testMidiButton" type="button">Тест MIDI</button>
+    </div>
+
+    <div class="menu__section menu__grid">
+      <div class="menu__title">PDF для ПК</div>
+      <label>
+        <span>PDF для ПК-1</span>
+        <select id="pdfPc1Select"></select>
+      </label>
+      <label>
+        <span>PDF для ПК-2</span>
+        <select id="pdfPc2Select"></select>
+      </label>
+      <label>
+        <span>PDF для ПК-3</span>
+        <select id="pdfPc3Select"></select>
+      </label>
+      <label>
+        <span>PDF для ПК-4</span>
+        <select id="pdfPc4Select"></select>
+      </label>
+      <button id="savePdfButton" type="button">Сохранить PDF</button>
+      <button id="clearPdfCacheButton" type="button">Очистить кэш PDF-окна</button>
+    </div>
+
+    <div class="menu__section status-list">
+      <div id="connectionStatus"></div>
+      <div id="networkStatus"></div>
+      <div id="clickStatus"></div>
+      <div id="scenarioStatus"></div>
+      <div id="midiStatus"></div>
+      <div id="ipStatus"></div>
+    </div>
+
+    <div class="menu__section">
+      <div class="menu__title">Подключенные устройства</div>
+      <div id="devicesStatus" class="device-list"></div>
+    </div>
+  </aside>
+
+  <main class="viewport">
+    <div id="scene" class="scene"></div>
+  </main>
+
+  <script src="/app.js?v=20260409-keepalive-1"></script>
+</body>
+</html>
