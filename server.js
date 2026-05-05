@@ -280,21 +280,12 @@ function noteName(num) {
 
 function getLocalPdfWindowState() {
   return {
+    pid: localPdfWindow.pid,
     pdfFile: localPdfWindow.pdfFile || '',
     role: localPdfWindow.role || 'pc1',
     visible: Boolean(localPdfWindow.visible),
     token: localPdfWindow.token || '',
     stateVersion: localPdfWindow.stateVersion || 0,
-  };
-}
-
-function getLocalPdfWindowState() {
-  return {
-    pid: localPdfWindow.pid,
-    role: localPdfWindow.role,
-    pdfFile: localPdfWindow.pdfFile,
-    visible: localPdfWindow.visible,
-    stateVersion: localPdfWindow.stateVersion,
     tabs: Array.isArray(localPdfWindow.tabs) ? localPdfWindow.tabs.slice() : [],
     activeTabIndex: Number(localPdfWindow.activeTabIndex) || 0,
   };
