@@ -125,13 +125,10 @@
     const frame = document.getElementById('pdfFrame');
     const emptyState = document.getElementById('emptyState');
     const tabsBar = document.getElementById('tabsBar');
-
     let currentSrc = '';
     let currentStateVersion = -1;
     let stateStream = null;
-    let pdfWarmedUp = false;
-    let pendingPdfFile = null;
-    let knownTabKeys = new Set(); // для анимации только новых вкладок
+    let knownTabKeys = new Set();
 
     function fitWindowToPdf() {
       const TITLE_BAR_OFFSET = 32;
@@ -149,16 +146,12 @@
     function renderTabs(tabs, activeIndex) {
       const list = Array.isArray(tabs) ? tabs : [];
       const nextKeys = new Set(list.map((t) => t.pdfFile));
-
-      // Удаляем старые
       Array.from(tabsBar.children).forEach((el) => {
         if (!nextKeys.has(el.dataset.pdf)) {
           el.remove();
           knownTabKeys.delete(el.dataset.pdf);
         }
       });
-
-      // Добавляем новые / обновляем состояние
       list.forEach((tab, idx) => {
         let el = tabsBar.querySelector(`[data-pdf="${CSS.escape(tab.pdfFile)}"]`);
         if (!el) {
@@ -170,9 +163,7 @@
           el.addEventListener('click', () => activateTab(idx));
           tabsBar.appendChild(el);
           knownTabKeys.add(tab.pdfFile);
-          // Небольшая задержка — даёт анимации сработать при появлении
         } else {
-          // Убираем класс active у всех, назначим ниже
           el.textContent = tab.label || tab.pdfFile;
         }
         el.classList.toggle('active', idx === activeIndex);
@@ -190,10 +181,6 @@
     }
 
     function renderPdf(pdfFile) {
-      if (!pdfWarmedUp) {
-        pendingPdfFile = pdfFile;
-        return;
-      }
       if (!pdfFile) {
         currentSrc = '';
         frame.removeAttribute('src');
@@ -215,7 +202,6 @@
     function applyState(state) {
       if (!state) return;
       const nextVersion = Number(state.stateVersion || 0);
-      // Вкладки перерисовываем всегда (нужны мгновенные обновления при добавлении)
       renderTabs(state.tabs || [], Number(state.activeTabIndex) || 0);
       if (nextVersion === currentStateVersion) return;
       currentStateVersion = nextVersion;
@@ -244,35 +230,8 @@
       } catch (_err) {}
     }
 
-    function warmupPdfViewer() {
-      return new Promise((resolve) => {
-        if (pdfWarmedUp) return resolve();
-        const onLoad = () => {
-          frame.removeEventListener('load', onLoad);
-          pdfWarmedUp = true;
-          resolve();
-        };
-        frame.addEventListener('load', onLoad);
-        frame.style.display = 'none';
-        frame.src = 'data:application/pdf;base64,JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9MZW5ndGggNDIvRmlsdGVyL0ZsYXRlRGVjb2RlPj5zdHJlYW0KeJwr5HIK4TI2UzBQMLVUMDc2VzAyMlMwNFAwM1MwMDECAP4VBvsKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDwvUHJvY1NldFsvUERGXT4+L01lZGlhQm94WzAgMCAxMCAxMF0vQ29udGVudHMgMyAwIFI+PgplbmRvYmoKMiAwIG9iago8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1sxIDAgUl0+PgplbmRvYmoKNCAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PgplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMTI0IDAwMDAwIG4gCjAwMDAwMDAyMTcgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMjY0IDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA1L1Jvb3QgNCAwIFI+PgpzdGFydHhyZWYKMzEwCiUlRU9G';
-        setTimeout(() => {
-          if (!pdfWarmedUp) {
-            frame.removeEventListener('load', onLoad);
-            pdfWarmedUp = true;
-            resolve();
-          }
-        }, 1500);
-      });
-    }
-
-    window.addEventListener('load', async () => {
+    window.addEventListener('load', () => {
       fitWindowToPdf();
-      await warmupPdfViewer();
-      if (pendingPdfFile !== null) {
-        const f = pendingPdfFile;
-        pendingPdfFile = null;
-        renderPdf(f);
-      }
       refreshState();
       connectStateStream();
       setTimeout(fitWindowToPdf, 80);
@@ -283,7 +242,6 @@
       try { stateStream && stateStream.close(); } catch (_err) {}
     });
 
-    // Антивандал: блокируем контекст, перетаскивание, масштаб
     window.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('dragstart', (e) => e.preventDefault());
     window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
