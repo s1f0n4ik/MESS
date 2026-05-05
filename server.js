@@ -41,6 +41,11 @@ const CSC_CANDIDATES = [
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
+app.use('/pdfs', express.static(path.join(__dirname, 'public', 'pdfs'), {
+  etag: true,
+  lastModified: true,
+  maxAge: '1h',
+}));
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
   lastModified: false,
