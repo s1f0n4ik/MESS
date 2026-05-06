@@ -769,27 +769,34 @@ function currentPopupPayload() {
   const visible = Boolean(scenario.forceOpenAll || openRoles[myRole]);
 
   const pdfMap = store.sceneState?.pdfsByRole || store.settings.pdfsByRole || {};
+  const waveIndex = Math.max(0, Math.min(4, Number(scenario.waveIndex) || 0));
+  const waveRole = waveIndex > 0 ? `pc${waveIndex}` : null;
   const openedCount = Object.values(openRoles).filter(Boolean).length;
 
   // Выбор источника PDF:
-  // - forceOpenAll  → каждый свой (pdfMap[myRole])
-  // - несколько ПК открыты одновременно (идёт «разворот» волны)
-  //   → все показывают PDF ведущей роли (scenario.currentRole)
-  // - открыт ровно один ПК → каждый свой (финальное состояние после волны)
+  // - forceOpenAll → каждый свой;
+  // - идёт волна (waveRole задан):
+  //     * финальная фиксация волны = открыт ровно 1 ПК и это pc{waveIndex}
+  //       → каждый открытый ПК показывает свой собственный PDF;
+  //     * иначе → все открытые показывают pcN.pdf ведущей волны;
+  // - без волны → каждый свой.
   let sourceRole = myRole;
-  if (!scenario.forceOpenAll && openedCount > 1 && scenario.currentRole) {
-    sourceRole = scenario.currentRole;
+  if (!scenario.forceOpenAll && waveRole) {
+    const isFinalFix =
+      scenario.currentRole === waveRole &&
+      openedCount === 1 &&
+      openRoles[waveRole];
+    sourceRole = isFinalFix ? myRole : waveRole;
   }
   const pdfFile = pdfMap[sourceRole] || pdfMap[myRole] || '';
 
-  // Токен включает всё, от чего должна зависеть замена содержимого окна:
-  // если PDF должен смениться — токен изменится и окно реально обновится.
   const token = visible
     ? [
         scenario.popupEpoch || 0,
         scenario.phase || '',
         scenario.currentRole || '',
         scenario.forceOpenAll ? 'all' : 'single',
+        `w${waveIndex}`,
         sourceRole,
         pdfFile,
       ].join(':')

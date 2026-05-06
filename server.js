@@ -98,6 +98,7 @@ function createInitialState() {
       startedAt: null,
       forceOpenAll: false,
       restoreAfterForce: null,
+      waveIndex: 0,
     },
     midi: {
       midiChannel: 2,
@@ -974,6 +975,7 @@ function startScenario(trigger, role = 'pc1') {
   state.scenario.startedAt = Date.now();
   state.scenario.forceOpenAll = false;
   state.scenario.restoreAfterForce = null;
+  state.scenario.waveIndex = 1;
   state.midi.lastMessage = { type: 'launch', at: Date.now(), trigger };
   setLastEvent('scenario_started', { trigger, role: openRole });
   broadcastState('scenario_started');
@@ -1256,6 +1258,14 @@ function applyAction(action = {}, meta = {}) {
     if (note === state.midi.launchNote) {
       if (state.scenario.active && clickTriggeredScenario && state.scenario.currentRole === 'pc4' && !state.scenario.forceOpenAll) {
         closeScenario({ type: 'midi_launch_close', note, channel });
+        return;
+      }
+      if (state.scenario.active && !state.scenario.forceOpenAll) {
+        const prevWave = Number(state.scenario.waveIndex) || 1;
+        state.scenario.waveIndex = Math.max(1, Math.min(4, prevWave + 1));
+        state.scenario.popupEpoch += 1;
+        setLastEvent('scenario_wave_advanced', { waveIndex: state.scenario.waveIndex, prevWave, note, channel });
+        broadcastState('scenario_wave_advanced');
         return;
       }
       broadcastState('midi_input');
