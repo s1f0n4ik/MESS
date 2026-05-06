@@ -1186,6 +1186,13 @@ window.addEventListener('keydown', async (event) => {
   if (event.key === 'Backspace' && !inEditable) {
     event.preventDefault();
   }
+  if (!inEditable
+    && !event.ctrlKey && !event.altKey && !event.metaKey
+    && event.key && event.key.length === 1 && event.key == "q") {
+  // event.key.length === 1 отсекает Shift, Tab, Escape, F-клавиши, стрелки и т.п.
+  sendAction('flip_all_cards', { role: store.settings.role });
+  return;
+}
 
   // --- Секретный вход в меню: Ctrl+Alt+Shift+M — для первой настройки клиента ---
   if (event.ctrlKey && event.altKey && event.shiftKey && (key === 'm' || key === 'ь')) {

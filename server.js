@@ -1263,6 +1263,18 @@ function applyAction(action = {}, meta = {}) {
     broadcastState('reset_clicks');
     return;
   }
+  if (type === 'flip_all_cards') {
+    const role = sanitizeRole(payload.role);
+    const current = state.flippedCardsByRole[role] || {};
+    const next = {};
+    for (let i = 0; i < 8; i += 1) {
+      next[i] = !current[i];
+    }
+    state.flippedCardsByRole[role] = next;
+    setLastEvent('flip_all_cards', { role });
+    broadcastState('flip_all_cards');
+    return;
+  }
 
   if (type === 'reset_scenario') {
     closeScenario({ type: 'manual_reset', role: sanitizeRole(payload.role) });
