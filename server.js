@@ -42,10 +42,29 @@ const CSC_CANDIDATES = [
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use('/pdfs', express.static(path.join(__dirname, 'public', 'pdfs'), {
-  etag: true,
-  lastModified: true,
-  maxAge: '1h',
+  etag: false,
+  lastModified: true,            // оставляем, чтобы cache-buster по mtime работал
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  },
 }));
+app.get('/api/pdfs/mtime', (req, res) => {
+  const name = String(req.query.file || '').trim().replace(/\\/g, '/').split('/').pop();
+  const files = getPdfFiles();
+  if (!name || !files.includes(name)) {
+    res.json({ ok: false, mtime: 0 });
+    return;
+  }
+  try {
+    const stat = fs.statSync(path.join(__dirname, 'public', 'pdfs', name));
+    res.json({ ok: true, mtime: Math.floor(stat.mtimeMs) });
+  } catch (_err) {
+    res.json({ ok: false, mtime: 0 });
+  }
+});
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
   lastModified: false,
@@ -975,7 +994,11 @@ function startScenario(trigger, role = 'pc1') {
   state.scenario.startedAt = Date.now();
   state.scenario.forceOpenAll = false;
   state.scenario.restoreAfterForce = null;
-  state.scenario.waveIndex = 1;
+
+  // waveIndex = номер ПК, с которого стартовали (pc1→1, pc2→2, pc3→3, pc4→4)
+  const roleNum = Number(String(openRole).replace(/^pc/, '')) || 1;
+  state.scenario.waveIndex = Math.max(1, Math.min(4, roleNum));
+
   state.midi.lastMessage = { type: 'launch', at: Date.now(), trigger };
   setLastEvent('scenario_started', { trigger, role: openRole });
   broadcastState('scenario_started');
@@ -1187,10 +1210,17 @@ function applyAction(action = {}, meta = {}) {
     state.clicksByRole[role] += 1;
     state.flippedCardsByRole[role][cardIndex] = !state.flippedCardsByRole[role][cardIndex];
     setLastEvent('card_click', { role, cardIndex, clicks: state.clicksByRole[role] });
-    if (!state.scenario.active && !state.clickScenarioLockedByRole[role] && state.clicksByRole[role] === CLICK_THRESHOLD) {
-      startScenario({ type: 'click_threshold', role, clicks: state.clicksByRole[role] }, 'pc1');
+
+    // Порог считается ПО КАЖДОМУ ПК отдельно. Сценарий запускает тот ПК, который первым набрал 17.
+    if (
+      !state.scenario.active &&
+      !state.clickScenarioLockedByRole[role] &&
+      state.clicksByRole[role] >= CLICK_THRESHOLD
+    ) {
+      startScenario({ type: 'click_threshold', role, clicks: state.clicksByRole[role] }, role);
       return;
     }
+
     broadcastState('card_click');
     return;
   }

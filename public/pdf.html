@@ -180,7 +180,7 @@
       } catch (_err) {}
     }
 
-    function renderPdf(pdfFile) {
+    async function renderPdf(pdfFile) {
       if (!pdfFile) {
         currentSrc = '';
         frame.removeAttribute('src');
@@ -189,7 +189,16 @@
         document.title = 'PDF Viewer';
         return;
       }
-      const nextSrc = '/pdfs/' + encodeURIComponent(pdfFile).replace(/%2F/g, '/') + `#toolbar=0&navpanes=0&scrollbar=0&zoom=${PDF_ZOOM_PERCENT}`;
+      // Берём mtime файла с сервера, чтобы iframe перезагружался ТОЛЬКО когда PDF реально обновили на диске
+      let bust = Date.now();
+      try {
+        const r = await fetch('/api/pdfs/mtime?file=' + encodeURIComponent(pdfFile), { cache: 'no-store' });
+        const j = await r.json();
+        if (j && j.ok && j.mtime) bust = j.mtime;
+      } catch (_err) {}
+
+      const nextSrc = '/pdfs/' + encodeURIComponent(pdfFile).replace(/%2F/g, '/')
+        + `?v=${bust}#toolbar=0&navpanes=0&scrollbar=0&zoom=${PDF_ZOOM_PERCENT}`;
       if (currentSrc !== nextSrc) {
         frame.src = nextSrc;
         currentSrc = nextSrc;
