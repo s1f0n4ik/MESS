@@ -763,17 +763,45 @@ function setClearPdfCacheButtonState(label, disabled = false, restoreDelay = 0) 
 function currentPopupPayload() {
   const scenario = store.sceneState?.scenario;
   if (!scenario) return null;
-  const visible = Boolean(scenario.forceOpenAll || scenario.openRoles?.[store.settings.role]);
+
+  const myRole = store.settings.role;
+  const openRoles = scenario.openRoles || {};
+  const visible = Boolean(scenario.forceOpenAll || openRoles[myRole]);
+
+  const pdfMap = store.sceneState?.pdfsByRole || store.settings.pdfsByRole || {};
+  const openedCount = Object.values(openRoles).filter(Boolean).length;
+
+  // Выбор источника PDF:
+  // - forceOpenAll  → каждый свой (pdfMap[myRole])
+  // - несколько ПК открыты одновременно (идёт «разворот» волны)
+  //   → все показывают PDF ведущей роли (scenario.currentRole)
+  // - открыт ровно один ПК → каждый свой (финальное состояние после волны)
+  let sourceRole = myRole;
+  if (!scenario.forceOpenAll && openedCount > 1 && scenario.currentRole) {
+    sourceRole = scenario.currentRole;
+  }
+  const pdfFile = pdfMap[sourceRole] || pdfMap[myRole] || '';
+
+  // Токен включает всё, от чего должна зависеть замена содержимого окна:
+  // если PDF должен смениться — токен изменится и окно реально обновится.
   const token = visible
-    ? `${scenario.popupEpoch}:${scenario.phase}:${scenario.currentRole}:${scenario.forceOpenAll ? 'all' : 'single'}`
+    ? [
+        scenario.popupEpoch || 0,
+        scenario.phase || '',
+        scenario.currentRole || '',
+        scenario.forceOpenAll ? 'all' : 'single',
+        sourceRole,
+        pdfFile,
+      ].join(':')
     : null;
+
   return {
-    role: store.settings.role,
+    role: myRole,
     page: scenario.popupPage || 0,
     popupEpoch: scenario.popupEpoch || 0,
     visible,
     token,
-    pdfFile: store.sceneState?.pdfsByRole?.[store.settings.role] || store.settings.pdfsByRole?.[store.settings.role] || '',
+    pdfFile,
     scenario,
   };
 }
@@ -798,13 +826,21 @@ function ensurePopupWindow() {
     pdfFile: store.settings.pdfsByRole?.[store.settings.role] || '',
   };
   store.popupTokenActive = payload.token || null;
+
+  const scenario = store.sceneState?.scenario || {};
   const nextKey = [
     payload.role || '',
     payload.pdfFile || '',
     payload.visible ? '1' : '0',
+    scenario.currentRole || '',
+    scenario.phase || '',
+    scenario.popupEpoch || 0,
+    scenario.forceOpenAll ? 'all' : '',
   ].join('|');
+
   if (store.lastPdfWindowSyncKey === nextKey) return;
   store.lastPdfWindowSyncKey = nextKey;
+
   if (payload.visible) {
     store.popupTokenOpened = payload.token || null;
     store.popupFileOpened = payload.pdfFile || '';
