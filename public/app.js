@@ -763,22 +763,64 @@ function setClearPdfCacheButtonState(label, disabled = false, restoreDelay = 0) 
 function currentPopupPayload() {
   const scenario = store.sceneState?.scenario;
   if (!scenario) return null;
-  const visible = Boolean(scenario.forceOpenAll || scenario.openRoles?.[store.settings.role]);
+
+  const myRole = store.settings.role;            // 'pc1' | 'pc2' | 'pc3' | 'pc4'
+  const myOrdinal = Number(String(myRole).replace(/^pc/, '')) || 1; // 1..4
+  const openRoles = scenario.openRoles || {};
+  const visible = Boolean(scenario.forceOpenAll || openRoles[myRole]);
+
+  const pdfMap = store.sceneState?.pdfsByRole || store.settings.pdfsByRole || {};
+  const waveIndex = Math.max(0, Math.min(4, Number(scenario.waveIndex) || 0));
+  const openedCount = Object.values(openRoles).filter(Boolean).length;
+
+  // Правила выбора источника PDF:
+  // - forceOpenAll → каждый свой;
+  // - идёт волна N (waveIndex >= 1):
+  //     * это «осевшее» состояние (осели все ПК 1..N, лишних нет,
+  //       currentRole = pcN) → каждый показывает СВОЙ pcX.pdf,
+  //       где X = номер ПК (совпадает с myOrdinal), но только если myOrdinal <= N;
+  //     * иначе (идёт круг открытия/закрытия) → все видимые показывают pcN.pdf волны;
+  // - без волны → каждый свой.
+  let sourceRole = myRole;
+
+  if (!scenario.forceOpenAll && waveIndex >= 1) {
+    // Ожидаемая «осевшая» конфигурация волны N: открыты ровно pc1..pcN и только они.
+    const expectedSettled =
+      openedCount === waveIndex &&
+      Array.from({ length: waveIndex }, (_, i) => `pc${i + 1}`)
+        .every((r) => openRoles[r]) &&
+      scenario.currentRole === `pc${waveIndex}`;
+
+    if (expectedSettled) {
+      // Финальная фиксация: каждый ПК показывает свой домашний PDF.
+      sourceRole = myRole;
+    } else {
+      // Идёт круговое открытие волны — все видимые крутят pcN.pdf
+      sourceRole = `pc${waveIndex}`;
+    }
+  }
+
+  const pdfFile = pdfMap[sourceRole] || pdfMap[myRole] || '';
+
   const token = visible
-    ? `${scenario.popupEpoch}:${scenario.phase}:${scenario.currentRole}:${scenario.forceOpenAll ? 'all' : 'single'}`
+    ? [
+        scenario.popupEpoch || 0,
+        scenario.phase || '',
+        scenario.currentRole || '',
+        scenario.forceOpenAll ? 'all' : 'single',
+        `w${waveIndex}`,
+        sourceRole,
+        pdfFile,
+      ].join(':')
     : null;
+
   return {
-    role: store.settings.role,
+    role: myRole,
     page: scenario.popupPage || 0,
     popupEpoch: scenario.popupEpoch || 0,
     visible,
     token,
-    // Каждый ПК всегда показывает СВОЙ pdfsByRole[myRole].
-    // Если нужно показать «общий» файл на всех — выставь один и тот же файл в полях PC1..PC4 в админке.
-    pdfFile:
-      store.sceneState?.pdfsByRole?.[store.settings.role] ||
-      store.settings.pdfsByRole?.[store.settings.role] ||
-      '',
+    pdfFile,
     scenario,
   };
 }
@@ -792,6 +834,7 @@ function shouldSyncPopupWithEvent(lastEvent) {
     'force_open_all_enabled',
     'force_open_all_disabled',
     'scenario_closed',
+    'scenario_wave_advanced', // ← добавить
   ].includes(String(lastEvent.type || ''));
 }
 
@@ -803,13 +846,22 @@ function ensurePopupWindow() {
     pdfFile: store.settings.pdfsByRole?.[store.settings.role] || '',
   };
   store.popupTokenActive = payload.token || null;
+
+  const scenario = store.sceneState?.scenario || {};
   const nextKey = [
     payload.role || '',
     payload.pdfFile || '',
     payload.visible ? '1' : '0',
+    scenario.currentRole || '',
+    scenario.phase || '',
+    scenario.popupEpoch || 0,
+    scenario.waveIndex || 0,
+    scenario.forceOpenAll ? 'all' : '',
   ].join('|');
+
   if (store.lastPdfWindowSyncKey === nextKey) return;
   store.lastPdfWindowSyncKey = nextKey;
+
   if (payload.visible) {
     store.popupTokenOpened = payload.token || null;
     store.popupFileOpened = payload.pdfFile || '';
