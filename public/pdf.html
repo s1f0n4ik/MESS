@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>PDF Viewer</title>
+  <title>Inheritance</title>
   <style>
     :root {
       --pdf-width: 1968px;
@@ -119,9 +119,16 @@
     </div>
   </main>
   <script>
+    const WINDOW_TITLE = 'Inheritance';
+    document.title = WINDOW_TITLE;
+    // Chromium в app-mode любит подменять title на URL при навигации iframe.
+    // Форсим его обратно периодически.
+    setInterval(() => {
+      if (document.title !== WINDOW_TITLE) document.title = WINDOW_TITLE;
+    }, 500);
     const PDF_WIDTH = 1968;
     const PDF_HEIGHT = 1392;
-    const PDF_ZOOM_PERCENT = 120;
+    const PDF_ZOOM_PERCENT = 200;
     const frame = document.getElementById('pdfFrame');
     const emptyState = document.getElementById('emptyState');
     const tabsBar = document.getElementById('tabsBar');
@@ -187,7 +194,7 @@
         frame.removeAttribute('src');
         frame.style.display = 'none';
         emptyState.style.display = 'grid';
-        document.title = 'PDF Viewer';
+        document.title = WINDOW_TITLE;
         return;
       }
       // Берём mtime файла с сервера, чтобы iframe перезагружался ТОЛЬКО когда PDF реально обновили на диске
