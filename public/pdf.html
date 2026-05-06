@@ -91,6 +91,7 @@
       flex: 1 1 auto;
       position: relative;
       background: #fff;
+      overflow: hidden;   /* скроллить будет сам iframe внутри */
     }
     #pdfFrame {
       width: 100%;
@@ -112,7 +113,6 @@
 </head>
 <body>
   <main class="pdf-shell">
-    <nav id="tabsBar" class="tabs-bar" aria-label="PDF tabs"></nav>
     <div class="pdf-body">
       <div id="emptyState">PDF не выбран</div>
       <iframe id="pdfFrame" title="PDF"></iframe>
@@ -144,6 +144,7 @@
     }
 
     function renderTabs(tabs, activeIndex) {
+      if (!tabsBar) return;
       const list = Array.isArray(tabs) ? tabs : [];
       const nextKeys = new Set(list.map((t) => t.pdfFile));
       Array.from(tabsBar.children).forEach((el) => {
@@ -198,14 +199,14 @@
       } catch (_err) {}
 
       const nextSrc = '/pdfs/' + encodeURIComponent(pdfFile).replace(/%2F/g, '/')
-        + `?v=${bust}#toolbar=0&navpanes=0&scrollbar=0&zoom=${PDF_ZOOM_PERCENT}`;
+        + `?v=${bust}#toolbar=0&navpanes=0&zoom=${PDF_ZOOM_PERCENT}`;
       if (currentSrc !== nextSrc) {
         frame.src = nextSrc;
         currentSrc = nextSrc;
       }
       frame.style.display = 'block';
       emptyState.style.display = 'none';
-      document.title = pdfFile;
+      document.title = "";
     }
 
     function applyState(state) {
