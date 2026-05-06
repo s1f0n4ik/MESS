@@ -784,18 +784,11 @@ function currentPopupPayload() {
   let sourceRole = myRole;
 
   if (!scenario.forceOpenAll && waveIndex >= 1) {
-    // Ожидаемая «осевшая» конфигурация волны N: открыты ровно pc1..pcN и только они.
-    const expectedSettled =
-      openedCount === waveIndex &&
-      Array.from({ length: waveIndex }, (_, i) => `pc${i + 1}`)
-        .every((r) => openRoles[r]) &&
-      scenario.currentRole === `pc${waveIndex}`;
-
-    if (expectedSettled) {
-      // Финальная фиксация: каждый ПК показывает свой домашний PDF.
+    if (scenario.waveSettled) {
+      // Круг волны завершён — каждый открытый ПК показывает свой домашний PDF.
       sourceRole = myRole;
     } else {
-      // Идёт круговое открытие волны — все видимые крутят pcN.pdf
+      // Круг идёт — все видимые показывают pcN.pdf текущей волны.
       sourceRole = `pc${waveIndex}`;
     }
   }
@@ -830,11 +823,12 @@ function shouldSyncPopupWithEvent(lastEvent) {
   return [
     'scenario_started',
     'scenario_role_changed',
+    'scenario_role_opened',
     'scenario_role_closed',
     'force_open_all_enabled',
     'force_open_all_disabled',
     'scenario_closed',
-    'scenario_wave_advanced', // ← добавить
+    'scenario_wave_advanced',
   ].includes(String(lastEvent.type || ''));
 }
 
@@ -856,6 +850,7 @@ function ensurePopupWindow() {
     scenario.phase || '',
     scenario.popupEpoch || 0,
     scenario.waveIndex || 0,
+    scenario.waveSettled ? 'settled' : 'round',
     scenario.forceOpenAll ? 'all' : '',
   ].join('|');
 

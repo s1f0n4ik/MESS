@@ -118,6 +118,7 @@ function createInitialState() {
       forceOpenAll: false,
       restoreAfterForce: null,
       waveIndex: 0,
+      waveSettled: false,
     },
     midi: {
       midiChannel: 2,
@@ -977,7 +978,21 @@ function getLastOpenRole() {
   const opened = ROLES.filter((role) => openRoles[role]);
   return opened.length ? opened[opened.length - 1] : null;
 }
-
+function recomputeWaveSettled() {
+  const s = state.scenario;
+  const n = Number(s.waveIndex) || 0;
+  // В любых "ненормальных" состояниях осевшего быть не может
+  if (!s.active || s.forceOpenAll || n < 1) {
+    s.waveSettled = false;
+    return;
+  }
+  // Осевшая конфигурация волны N: открыты РОВНО pc1..pcN и только они.
+  const expected = Array.from({ length: n }, (_, i) => `pc${i + 1}`);
+  const openedList = ROLES.filter((r) => s.openRoles[r]);
+  s.waveSettled =
+    openedList.length === n &&
+    expected.every((r) => s.openRoles[r] === true);
+}
 function startScenario(trigger, role = 'pc1') {
   const openRole = sanitizeRole(role);
   if (trigger?.type === 'click_threshold' && trigger?.role) {
@@ -996,6 +1011,8 @@ function startScenario(trigger, role = 'pc1') {
   state.scenario.restoreAfterForce = null;
   state.midi.lastMessage = { type: 'launch', at: Date.now(), trigger };
   state.scenario.waveIndex = 1;
+  state.scenario.waveSettled = false;
+  recomputeWaveSettled();
   setLastEvent('scenario_started', { trigger, role: openRole });
   broadcastState('scenario_started');
 }
@@ -1010,6 +1027,7 @@ function setCurrentRole(role, source = {}) {
   state.scenario.startedAt = state.scenario.startedAt || Date.now();
   state.scenario.trigger = state.scenario.trigger || source;
   state.scenario.openRoles[targetRole] = true;
+  recomputeWaveSettled();
   setLastEvent('scenario_role_changed', { role: state.scenario.currentRole, source });
   broadcastState('scenario_role_changed');
 }
@@ -1035,6 +1053,7 @@ function openRolePopup(role, source = {}) {
   state.scenario.startedAt = state.scenario.startedAt || Date.now();
   state.scenario.trigger = state.scenario.trigger || source;
   state.scenario.openRoles[targetRole] = true;
+  recomputeWaveSettled();
   setLastEvent('scenario_role_changed', { role: state.scenario.currentRole, source });
   broadcastState('scenario_role_changed');
 }
@@ -1058,6 +1077,7 @@ function closeRolePopup(role, source = {}) {
     broadcastState('scenario_role_closed');
     return;
   }
+  recomputeWaveSettled();
   setLastEvent('scenario_role_close_ignored', { role: targetRole, source, reason: 'not_open', openRoles: state.scenario.openRoles });
   broadcastState('scenario_role_close_ignored');
 }
@@ -1078,6 +1098,7 @@ function toggleForceOpenAll(source = {}) {
     state.scenario.currentRole = 'all';
     state.scenario.openRoles = { pc1: true, pc2: true, pc3: true, pc4: true };
     state.scenario.popupEpoch += 1;
+    recomputeWaveSettled();
     setLastEvent('force_open_all_enabled', source);
     broadcastState('force_open_all_enabled');
     return;
@@ -1124,6 +1145,8 @@ function closeScenario(source = {}, options = {}) {
   if (flippedCardsByRole) state.flippedCardsByRole = flippedCardsByRole;
   state.scenario.popupEpoch = popupEpoch;
   state.midi.lastMessage = { type: 'close', at: Date.now(), source };
+  state.scenario.waveSettled = false;
+  recomputeWaveSettled();
   setLastEvent('scenario_closed', source);
   broadcastState('scenario_closed');
 }
@@ -1133,6 +1156,8 @@ function hardReset(source = {}) {
     { ...source, type: 'hard_reset' },
     { preserveClicks: false, preserveClickLocks: false, preserveFlips: false }
   );
+  state.scenario.waveSettled = false;
+  recomputeWaveSettled();
 }
 
 function updateMidiConfig(payload = {}) {
@@ -1295,15 +1320,17 @@ function applyAction(action = {}, meta = {}) {
     return;
   }
   state.scenario.waveIndex = prevWave + 1;
-  state.scenario.popupEpoch += 1;
-  setLastEvent('scenario_wave_advanced', {
-    waveIndex: state.scenario.waveIndex,
-    prevWave,
-    note,
-    channel,
-  });
-  broadcastState('scenario_wave_advanced');
-  return;
+state.scenario.waveSettled = false;
+state.scenario.popupEpoch += 1;
+recomputeWaveSettled(); // на этот момент openRoles ещё прежний — скорее всего останется false
+setLastEvent('scenario_wave_advanced', {
+  waveIndex: state.scenario.waveIndex,
+  prevWave,
+  note,
+  channel,
+});
+broadcastState('scenario_wave_advanced');
+return;
 }
     if (note === state.midi.minimizeAllNote) {
       triggerMinimizeAllWindows({ type: 'midi_minimize_all_windows', note, channel });
