@@ -1188,7 +1188,7 @@ window.addEventListener('keydown', async (event) => {
   }
   if (!inEditable
     && !event.ctrlKey && !event.altKey && !event.metaKey
-    && event.key && event.key.length === 1 && event.key == "q") {
+    && event.key && event.key.length === 1 && (key === 'q' || key === 'й')) {
   // event.key.length === 1 отсекает Shift, Tab, Escape, F-клавиши, стрелки и т.п.
   sendAction('flip_all_cards', { role: store.settings.role });
   return;
